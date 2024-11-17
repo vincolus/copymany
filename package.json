@@ -1,0 +1,175 @@
+{
+  "name": "copymany",
+  "displayName": "CopyMany",
+  "description": "A VS Code extension for copying multiple files with their paths.",
+  "version": "0.1.5",
+  "author": "vincolus",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vincolus/vscode-copymany.git"
+  },
+  "engines": {
+    "vscode": ">=1.92.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "copymany.copyFilesWithPaths",
+        "title": "Copy Files + Paths",
+        "shortTitle": "Copy File(s) + Path(s)",
+        "category": "Edit",
+        "icon": "images/icon.svg"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "copymany.copyFilesWithPaths",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "copymany.copyFilesWithPaths",
+          "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
+          "group": "5_open"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "CopyMany Configuration",
+      "properties": {
+        "copymany.ignorePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "*.exe",
+            "*.dll",
+            "*.so",
+            "*.dylib",
+            "*.ttf",
+            "*.mod",
+            "*.sum",
+            "**/.git/**",
+            "**/.svn/**",
+            "**/.hg/**",
+            "**/.gitignore",
+            "node_modules/",
+            "dist/",
+            "build/",
+            "coverage/",
+            "bower_components/",
+            "jspm_packages/",
+            "__pycache__/",
+            "*.pyc",
+            "*.pyo",
+            "*.pyd",
+            "env/",
+            "venv/",
+            "ENV/",
+            "VENV/",
+            "target/",
+            "bin/",
+            "out/",
+            "bin/",
+            "obj/",
+            "packages/",
+            "*.o",
+            "*.a",
+            "*.obj",
+            "*.lib",
+            "Cargo.lock",
+            "pkg/",
+            "bin/",
+            "pkg/",
+            ".vscode/",
+            ".idea/",
+            "*.suo",
+            "*.ntvs_analysis.dat",
+            "*.njsproj",
+            "*.sln",
+            "*.user",
+            "*.userosscache",
+            "*.sln.docstates",
+            "*.DS_Store",
+            "Thumbs.db",
+            "ehthumbs.db",
+            "Desktop.ini",
+            "docs/_build/",
+            "docs/build/",
+            "*.tmp",
+            "*.temp",
+            "*.log",
+            "*.cache",
+            "*.bak",
+            "*.swp",
+            "*.swo",
+            "tmp/",
+            "temp/",
+            "coverage/",
+            ".nyc_output/",
+            "vendor/",
+            "logs/",
+            "database/",
+            "public/",
+            "public_html/",
+            "static/",
+            "public/js/",
+            "public/css/",
+            "qtbox/",
+            "raylib/"
+          ],
+          "description": "List of glob patterns to ignore when copying files. Supports wildcards like *.pyc and directories like node_modules/."
+        },
+        "copymany.whitelistPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of glob patterns to include when copying files. If set, only files matching these patterns will be considered."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "bun run compile",
+    "compile": "bun run tsc -p ./",
+    "watch": "bun run tsc -watch -p ./",
+    "pretest": "bun run compile && bun run lint",
+    "lint": "bun run eslint src --ext ts",
+    "test": "bun run node ./out/test/runTest.js",
+    "package": "bun run vsce package",
+    "publish": "bun run vsce publish",
+    "install": "code --install-extension copymany-0.1.5.vsix 2>/dev/null || echo 'Extension not installed.'",
+    "uninstall": "code --uninstall-extension vincolus.copymany 2>/dev/null || echo 'Extension not installed.'",
+    "dev": "bun run uninstall && bun run compile && bun run package && bun run install"
+  },
+  "devDependencies": {
+    "@types/glob": "^7.2.0",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.92.1",
+    "@typescript-eslint/eslint-plugin": "^5.27.0",
+    "@typescript-eslint/parser": "^5.27.0",
+    "@vscode/test-electron": "^2.1.3",
+    "eslint": "^8.16.0",
+    "glob": "^8.0.3",
+    "micromatch": "^4.0.4",
+    "mocha": "^10.0.0",
+    "typescript": "^5.6.2",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "rimraf": "^6.0.1"
+  }
+}

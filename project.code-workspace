@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"typescript.tsc.autoDetect": "off",
+		"typescript.tsserver.watchOptions": {},
+		"npm.packageManager": "bun"
+	}
+}
