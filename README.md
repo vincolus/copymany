@@ -1,6 +1,7 @@
 # CopyMany
 
-This extension allows you to easily copy the contents of selected files directly from the Visual Studio Code project pane, with an option to prepend file paths for better context. It intelligently handles both files and folders, making it a versatile tool for developers.
+This extension allows you to easily copy the contents of selected files directly from the Visual Studio Code project pane to the clipboard, with an option to prepend file paths for better context. 
+It intelligently handles both files and folders, making it a versatile tool for developers.
 
 [CopyMany - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=vincolus.copymany)
 
@@ -10,7 +11,7 @@ This extension allows you to easily copy the contents of selected files directly
 - Right-click to quickly access the action from the context menu.
 - Supports multiple file selections in the explorer pane for batch copying.
 - **Recursive Folder Handling**: If a folder is selected, the extension recursively processes all files within it, respecting your configuration for included and excluded patterns.
-- Automatically detects whether the selection is a file or folder and handles it accordingly.
+- Automatically detects whether the selection is a binary, a text-file or a folder and handles it accordingly.
 - Customizable settings for including or excluding files and folders during copying.
 
 ## Installation
