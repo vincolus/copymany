@@ -1,8 +1,8 @@
 import * as fs from 'fs/promises';
-import micromatch from 'micromatch';
+import ignore from 'ignore';
+import { isBinaryFile as checkIsBinaryFile } from 'isbinaryfile';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import defaultIgnorePatterns from './ignores.json'; // Importieren der ignores.json zur Compile-Zeit
 
 export function activate(context: vscode.ExtensionContext) {
   const copyFilesWithPaths = vscode.commands.registerCommand(
@@ -14,11 +14,11 @@ export function activate(context: vscode.ExtensionContext) {
       let uris: vscode.Uri[] = [];
 
       if (args.length > 1 && Array.isArray(args[1])) {
-        // Wenn das Kommando vom Kontextmenü mit mehreren Auswahlen aufgerufen wurde
+        // Kommando vom Kontextmenü mit mehreren Auswahlen
         uris = args[1];
         console.log('URIs aus context menu:', uris.map(uri => uri.fsPath));
       } else if (args.length === 1 && args[0] instanceof vscode.Uri) {
-        // Wenn das Kommando über eine einzelne Datei oder Ordner aufgerufen wurde
+        // Kommando über eine einzelne Datei oder Ordner
         uris = [args[0]];
         console.log('Single URI:', uris[0].fsPath);
       } else {
@@ -34,6 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (selectedUris) {
           uris = selectedUris;
           console.log('URIs aus Dialog:', uris.map(uri => uri.fsPath));
+          }
         }
       }
 
@@ -55,8 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
         // Lesen Sie die Einstellungen aus der Konfiguration
         const config = vscode.workspace.getConfiguration('copymany');
         const whitelistPatterns: string[] = config.get('whitelistPatterns', []);
-        const userIgnorePatterns: string[] = config.get('ignorePatterns', []);
-        const ignorePatterns: string[] = [...defaultIgnorePatterns, ...userIgnorePatterns]; // Kombination aus Default und User-Patterns
+        const ignorePatterns: string[] = config.get('ignorePatterns', []);
         const maxFileSizeMB: number = config.get('maxFileSizeMB', 0.5);
 
         console.log('Whitelist-Muster:', whitelistPatterns);
@@ -92,29 +92,40 @@ export function activate(context: vscode.ExtensionContext) {
         }, async (progress) => {
           progress.report({ increment: 0, message: "Überprüfe Dateien..." });
 
-          // Überprüfen Sie die Existenz und Größe jeder Datei
+          // Überprüfen Sie die Existenz, Größe und ob die Datei binär ist
           const existingUris = await Promise.all(
             validFileUris.map(async (uri, index) => {
               try {
                 const stats = await fs.stat(uri.fsPath);
                 const fileSizeMB = stats.size / (1024 * 1024);
-                if (fileSizeMB <= maxFileSizeMB) {
-                  progress.report({ increment: (index / validFileUris.length) * 50, message: `Überprüfe: ${uri.fsPath}` });
-                  return uri;
-                } else {
+                if (fileSizeMB > maxFileSizeMB) {
                   console.log(`Datei übersprungen (Größe ${fileSizeMB.toFixed(2)} MB überschreitet das Maximum von ${maxFileSizeMB} MB): ${uri.fsPath}`);
                   return null;
                 }
-              } catch {
+
+                const binary = await isBinaryFile(uri.fsPath);
+                if (binary) {
+                  console.log(`Datei übersprungen (Binärdatei): ${uri.fsPath}`);
+                  return null;
+                }
+
+                progress.report({ increment: (index / validFileUris.length) * 50, message: `Überprüfe: ${uri.fsPath}` });
+                return uri;
+              } catch (error: any) {
                 vscode.window.showErrorMessage(`Datei existiert nicht oder ist nicht zugänglich: ${uri.fsPath}`);
-                console.error(`Datei existiert nicht oder ist nicht zugänglich: ${uri.fsPath}`);
+                console.error(`Datei existiert nicht oder ist nicht zugänglich: ${uri.fsPath}`, error);
                 return null;
               }
             })
           );
 
-          // Filtern Sie nicht existierende oder zu große Dateien heraus
+          // Filtern Sie nicht existierende, zu große oder binäre Dateien heraus
           const finalValidUris = existingUris.filter(uri => uri !== null) as vscode.Uri[];
+
+          const skippedFilesCount = validFileUris.length - finalValidUris.length;
+          if (skippedFilesCount > 0) {
+            vscode.window.showWarningMessage(`${skippedFilesCount} Datei(en) wurden aufgrund der Größenbeschränkung von ${maxFileSizeMB} MB oder weil sie Binärdateien sind, übersprungen.`);
+          }
 
           if (finalValidUris.length === 0) {
             vscode.window.showInformationMessage('Keine gültigen Dateien zum Kopieren gefunden!');
@@ -174,8 +185,10 @@ async function collectAllFiles(uris: vscode.Uri[]): Promise<vscode.Uri[]> {
       if (stats.isFile()) {
         fileUris.push(uri);
       } else if (stats.isDirectory()) {
+        // Suche rekursiv nach allen Dateien in diesem Verzeichnis
         const subUris = await vscode.workspace.findFiles(new vscode.RelativePattern(uri, '**/*'), undefined, Infinity, undefined);
         fileUris.push(...subUris);
+        console.log(`Gesammelte ${subUris.length} Dateien aus Verzeichnis: ${uri.fsPath}`);
       }
     } catch (error: any) {
       vscode.window.showErrorMessage(`Fehler beim Zugriff auf URI: ${uri.fsPath}\n${error.message}`);
@@ -190,15 +203,29 @@ async function collectAllFiles(uris: vscode.Uri[]): Promise<vscode.Uri[]> {
  * Filters URIs based on given patterns.
  * @param uris An array of URIs to filter.
  * @param patterns Glob patterns to match against.
- * @param include If true, includes URIs matching the patterns; if false, excludes them.
+ * @param isWhitelist If true, includes only URIs matching the patterns; if false, excludes URIs matching the patterns.
  * @returns An array of filtered URIs.
  */
-function filterUrisByPatterns(uris: vscode.Uri[], patterns: string[], include: boolean): vscode.Uri[] {
+function filterUrisByPatterns(uris: vscode.Uri[], patterns: string[], isWhitelist: boolean): vscode.Uri[] {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+
+  // Initialisiere die ignore-Instanz mit den Mustern
+  const ig = ignore().add(patterns);
+
   return uris.filter(uri => {
-    const relativePath = path.relative(workspaceFolder, uri.fsPath);
-    const isMatch = micromatch.isMatch(relativePath, patterns, { dot: true, matchBase: true });
-    return include ? isMatch : !isMatch;
+    let relativePath = path.relative(workspaceFolder, uri.fsPath).split(path.sep).join('/');
+
+    const isIgnored = ig.ignores(relativePath);
+
+    // Debugging-Ausgabe
+    console.log(`Datei: ${relativePath}, Ignored: ${isIgnored} (${isWhitelist ? 'Include' : 'Exclude'})`);
+
+    // Wenn isWhitelist=false, dann nur Dateien einbeziehen, die NICHT den Ignore-Mustern entsprechen (isIgnored=false)
+    if (isWhitelist) {
+      return isIgnored;
+    } else {
+      return !isIgnored;
+    }
   });
 }
 
@@ -210,8 +237,23 @@ function filterUrisByPatterns(uris: vscode.Uri[], patterns: string[], include: b
  */
 function formatFileContent(filePath: string, fileContent: string): string {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-  const relativePath = path.relative(workspaceFolder, filePath);
+  const relativePath = path.relative(workspaceFolder, filePath).split(path.sep).join('/');
   return `=== START OF FILE: ${relativePath} ===\n${fileContent}\n=== END OF FILE: ${relativePath} ===`;
+}
+
+/**
+ * Überprüft, ob eine Datei binär ist.
+ * @param filePath Der absolute Pfad zur Datei.
+ * @returns True, wenn die Datei binär ist, sonst false.
+ */
+async function isBinaryFile(filePath: string): Promise<boolean> {
+  try {
+    return await checkIsBinaryFile(filePath);
+  } catch (error) {
+    console.error(`Fehler bei der Binärdatei-Überprüfung für ${filePath}:`, error);
+    // Im Fehlerfall gehen wir davon aus, dass die Datei nicht binär ist, um den Prozess nicht zu unterbrechen
+    return false;
+  }
 }
 
 export function deactivate() {}
