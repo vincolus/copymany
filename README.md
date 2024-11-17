@@ -2,6 +2,8 @@
 
 This extension allows you to easily copy the contents of selected files directly from the Visual Studio Code project pane, with an option to prepend file paths for better context. It intelligently handles both files and folders, making it a versatile tool for developers.
 
+[CopyMany - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=vincolus.copymany)
+
 ## Features
 
 - **Copy File(s) + Path(s)**: Copy the contents of selected files with their file paths prepended for reference.
