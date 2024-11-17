@@ -10,6 +10,7 @@ vsc-extension-quickstart.md
 **/*.ts
 *.bat
 *.lockb
-node_modules/**
+# node_modules/**
 *.code-workspace
-_bak/**
+_bak/
+*.vsix
