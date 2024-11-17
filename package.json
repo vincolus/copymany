@@ -1,8 +1,8 @@
 {
   "name": "copymany",
   "displayName": "CopyMany",
-  "description": "A VS Code extension for copying multiple files with their paths.",
-  "version": "0.2.2",
+  "description": "A VS Code extension for copying multiple files with their paths to the clipboard.",
+  "version": "0.2.3",
   "author": "vincolus",
   "publisher": "vincolus",
   "icon": "images/icon_128x128.png",

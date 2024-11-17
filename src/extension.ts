@@ -22,52 +22,18 @@ export function activate(context: vscode.ExtensionContext) {
         uris = [args[0]];
         console.log('Single URI:', uris[0].fsPath);
       } else {
-        // Keine oder unerwartete Eingaben übergeben (WIP)
-        if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-          // Workspace ist geöffnet, biete die Option an, den gesamten Workspace zu kopieren
-          const workspaceFolder = vscode.workspace.workspaceFolders[0];
-          const selection = await vscode.window.showQuickPick(
-            ['Workspace Root kopieren', 'Spezifische Dateien/Ordner auswählen'],
-            {
-              placeHolder: 'Möchten Sie den gesamten Workspace kopieren oder spezifische Dateien/Ordner auswählen?'
-            }
-          );
-
-          if (selection === 'Workspace Root kopieren') {
-            uris = [workspaceFolder.uri];
-            console.log('Workspace Root ausgewählt:', workspaceFolder.uri.fsPath);
-          } else if (selection === 'Spezifische Dateien/Ordner auswählen') {
-            // Öffne den Dialog zur Dateiauswahl
-            const selectedUris = await vscode.window.showOpenDialog({
-              canSelectMany: true,
-              canSelectFolders: true,
-              openLabel: 'Select Files and Folders',
-              filters: {
-                'All Files': ['*']
-              }
-            });
-            if (selectedUris) {
-              uris = selectedUris;
-              console.log('URIs aus Dialog:', uris.map(uri => uri.fsPath));
-            }
-          } else {
-            // Benutzer hat die Auswahl abgebrochen
-            vscode.window.showInformationMessage('Keine Aktion ausgewählt.');
-            return;
+        // Falls keine oder unerwartete Eingaben übergeben wurden, öffne den Dialog zur Dateiauswahl
+        const selectedUris = await vscode.window.showOpenDialog({
+          canSelectMany: true,
+          canSelectFolders: true,
+          openLabel: 'Select Files and Folders',
+          filters: {
+            'All Files': ['*']
           }
-        } else {
-          // Kein Workspace geöffnet, öffne den Dialog zur Dateiauswahl
-          const selectedUris = await vscode.window.showOpenDialog({
-            canSelectMany: true,
-            canSelectFolders: true,
-            openLabel: 'Select Files and Folders',
-            filters: {
-              'All Files': ['*']
-            }
-          });
-          if (selectedUris) {
-            uris = selectedUris;
-            console.log('URIs aus Dialog:', uris.map(uri => uri.fsPath));
+        });
+        if (selectedUris) {
+          uris = selectedUris;
+          console.log('URIs aus Dialog:', uris.map(uri => uri.fsPath));
           }
         }
       }
