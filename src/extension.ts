@@ -57,9 +57,11 @@ export function activate(context: vscode.ExtensionContext) {
         const whitelistPatterns: string[] = config.get('whitelistPatterns', []);
         const userIgnorePatterns: string[] = config.get('ignorePatterns', []);
         const ignorePatterns: string[] = [...defaultIgnorePatterns, ...userIgnorePatterns]; // Kombination aus Default und User-Patterns
+        const maxFileSizeMB: number = config.get('maxFileSizeMB', 0.5);
 
         console.log('Whitelist-Muster:', whitelistPatterns);
         console.log('Ignoriermuster:', ignorePatterns);
+        console.log('Maximale Dateigröße (MB):', maxFileSizeMB);
 
         // Filtern der Dateien basierend auf der Whitelist (falls vorhanden)
         let whitelistedUris = allFileUris;
@@ -90,13 +92,19 @@ export function activate(context: vscode.ExtensionContext) {
         }, async (progress) => {
           progress.report({ increment: 0, message: "Überprüfe Dateien..." });
 
-          // Überprüfen Sie die Existenz jeder Datei
+          // Überprüfen Sie die Existenz und Größe jeder Datei
           const existingUris = await Promise.all(
             validFileUris.map(async (uri, index) => {
               try {
-                await fs.access(uri.fsPath);
-                progress.report({ increment: (index / validFileUris.length) * 50, message: `Überprüfe: ${uri.fsPath}` });
-                return uri;
+                const stats = await fs.stat(uri.fsPath);
+                const fileSizeMB = stats.size / (1024 * 1024);
+                if (fileSizeMB <= maxFileSizeMB) {
+                  progress.report({ increment: (index / validFileUris.length) * 50, message: `Überprüfe: ${uri.fsPath}` });
+                  return uri;
+                } else {
+                  console.log(`Datei übersprungen (Größe ${fileSizeMB.toFixed(2)} MB überschreitet das Maximum von ${maxFileSizeMB} MB): ${uri.fsPath}`);
+                  return null;
+                }
               } catch {
                 vscode.window.showErrorMessage(`Datei existiert nicht oder ist nicht zugänglich: ${uri.fsPath}`);
                 console.error(`Datei existiert nicht oder ist nicht zugänglich: ${uri.fsPath}`);
@@ -105,7 +113,7 @@ export function activate(context: vscode.ExtensionContext) {
             })
           );
 
-          // Filtern Sie nicht existierende Dateien heraus
+          // Filtern Sie nicht existierende oder zu große Dateien heraus
           const finalValidUris = existingUris.filter(uri => uri !== null) as vscode.Uri[];
 
           if (finalValidUris.length === 0) {

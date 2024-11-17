@@ -2,7 +2,7 @@
   "name": "copymany",
   "displayName": "CopyMany",
   "description": "A VS Code extension for copying multiple files with their paths.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": "vincolus",
   "publisher": "vincolus",
   "icon": "images/icon_128x128.png",
@@ -48,6 +48,12 @@
       "type": "object",
       "title": "CopyMany Configuration",
       "properties": {
+        "copymany.maxFileSizeMB": {
+          "type": "number",
+          "default": 0.5,
+          "minimum": 0,
+          "description": "Maximale Dateigröße in MB für das Kopieren von Dateien."
+        },
         "copymany.ignorePatterns": {
           "type": "array",
           "items": {
