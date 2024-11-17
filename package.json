@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vincolus/vscode-copymany.git"
+    "url": "https://github.com/vincolus/copymany.git"
   },
   "engines": {
     "vscode": ">=1.92.1"
