@@ -12,5 +12,5 @@ vsc-extension-quickstart.md
 *.lockb
 # node_modules/**
 *.code-workspace
-_bak/
+**/_bak/
 *.vsix

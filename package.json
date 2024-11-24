@@ -2,7 +2,7 @@
   "name": "copymany",
   "displayName": "CopyMany",
   "description": "A VS Code extension that enables copying the contents of files or entire folder structures directly to the clipboard.",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "author": "vincolus",
   "publisher": "vincolus",
   "icon": "images/icon_128x128.png",
@@ -19,9 +19,6 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [],
-  "enabledApiProposals": [
-    "contribSourceControlHistoryItemMenu"
-  ],
   "contributes": {
     "commands": [
       {
