@@ -19,13 +19,16 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [],
+  "enabledApiProposals": [
+    "contribSourceControlHistoryItemMenu"
+  ],
   "contributes": {
     "commands": [
       {
         "command": "copymany.copyFilesWithPaths",
         "title": "Copy Files + Paths",
         "shortTitle": "Copy File(s) + Path(s)",
-        "category": "Edit",
+        "category": "File",
         "icon": "images/icon.svg"
       }
     ],
@@ -33,6 +36,7 @@
       "editor/title": [
         {
           "command": "copymany.copyFilesWithPaths",
+          "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
           "group": "navigation"
         }
       ],
@@ -41,6 +45,20 @@
           "command": "copymany.copyFilesWithPaths",
           "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
           "group": "5_open"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "copymany.copyFilesWithPaths",
+          "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "copymany.copyFilesWithPaths",
+          "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
+          "group": "navigation"
         }
       ]
     },
