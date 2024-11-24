@@ -1,3 +1,4 @@
+// src/extension.ts
 import * as fs from "fs/promises";
 import ignore from "ignore";
 import { isBinaryFile as checkIsBinaryFile } from "isbinaryfile";
@@ -14,21 +15,21 @@ export function activate(context: vscode.ExtensionContext) {
       let uris: vscode.Uri[] = [];
 
       if (args.length > 0) {
-        if (Array.isArray(args) && args.every(arg => arg?.resourceUri)) {
-          // Mehrfachauswahl im SCM
-          uris = args.map(arg => arg.resourceUri);
-          console.log("SCM URIs erkannt:", uris.map(uri => uri.fsPath));
+        if (Array.isArray(args) && args.every(arg => arg instanceof vscode.Uri)) {
+          // Mehrfachauswahl aus dem Explorer oder SCM
+          uris = args as vscode.Uri[];
+          console.log("Mehrfachauswahl erkannt:", uris.map(uri => uri.fsPath));
         } else if (args.length > 1 && Array.isArray(args[1])) {
           // Mehrfachauswahl aus Explorer-Kontextmenü
           uris = args[1];
           console.log("URIs aus Kontextmenü:", uris.map(uri => uri.fsPath));
-        } else if (args.length === 1 && args[0] instanceof vscode.Uri) {
-          // Einzelne Datei oder Ordner aus Explorer-Kontextmenü
+        } else if (args.length >= 1 && args[0] instanceof vscode.Uri) {
+          // Einzelne Datei oder Ordner aus verschiedenen Kontexten (z.B. Editor-Titel)
           uris = [args[0]];
-          console.log("Einzelner URI aus Explorer:", uris[0].fsPath);
+          console.log("Einzelner URI aus Argumenten:", uris[0].fsPath);
         } else {
-          // Keine Eingabe, öffnee Dateiauswahl-Dialog
-          console.log("Keine Eingabe, öffne Dialog...");
+          // Keine oder unbekannte Eingabe, öffne Dateiauswahl-Dialog
+          console.log("Keine gültigen Eingaben erkannt, öffne Dialog...");
         }
       }
 
@@ -44,6 +45,15 @@ export function activate(context: vscode.ExtensionContext) {
           uris = selectedUris;
           console.log("URIs aus Dialog:", uris.map(uri => uri.fsPath));
         }
+      }
+
+      // **Zusätzliche Logik für den Editor-Kontext**
+      if (uris.length === 0 && args.length === 2) {
+        // Vermutlich aus dem Editor-Kontextmenü aufgerufen
+        // Sammle alle geöffneten Editor-Tabs
+        const visibleEditors = vscode.window.visibleTextEditors;
+        uris = visibleEditors.map(editor => editor.document.uri);
+        console.log("Verarbeite alle offenen Editor-Tabs:", uris.map(uri => uri.fsPath));
       }
 
       if (uris.length === 0) {
@@ -177,8 +187,9 @@ export function activate(context: vscode.ExtensionContext) {
             const textToCopy = formattedContents.filter(Boolean).join("\n\n");
             if (textToCopy) {
               await vscode.env.clipboard.writeText(textToCopy);
+              const numfiles = finalValidUris.length;
               vscode.window.showInformationMessage(
-                "Dateien mit Pfaden erfolgreich kopiert!"
+                numfiles + " Dateien mit Pfaden erfolgreich kopiert!"
               );
             } else {
               vscode.window.showInformationMessage(
@@ -194,9 +205,204 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const copyAllOpenEditors = vscode.commands.registerCommand(
+    "copymany.copyAllOpenEditors",
+    async () => {
+      const tabGroups = vscode.window.tabGroups.all;
+      const uris: vscode.Uri[] = [];
+  
+      for (const group of tabGroups) {
+        for (const tab of group.tabs) {
+          // Type-safe check with type assertion
+          if (tab.input && typeof tab.input === 'object') {
+            // Try to extract URI from different possible input types
+            let uri: vscode.Uri | undefined;
+  
+            // Check for TextDocument
+            if ('document' in tab.input) {
+              uri = (tab.input as { document: { uri: vscode.Uri } }).document.uri;
+            }
+            
+            // Check for direct URI
+            if (!uri && 'uri' in tab.input) {
+              uri = (tab.input as { uri: vscode.Uri }).uri;
+            }
+  
+            // Additional checks for other potential input types
+            if (!uri && 'resourceUri' in tab.input) {
+              uri = (tab.input as { resourceUri: vscode.Uri }).resourceUri;
+            }
+  
+            if (uri) {
+              uris.push(uri);
+              console.log("Found URI:", uri.fsPath);
+            }
+          }
+        }
+      }
+  
+      console.log("Total URIs found:", uris.length);
+      console.log("URI paths:", uris.map(uri => uri.fsPath));
+  
+      if (uris.length === 0) {
+        vscode.window.showInformationMessage("Keine offenen Dateien zum Kopieren gefunden!");
+        return;
+      }
+  
+      await processUris(uris);
+    }
+  );
+  
+  
 
-  context.subscriptions.push(copyFilesWithPaths);
+  context.subscriptions.push(copyFilesWithPaths, copyAllOpenEditors);
+  // context.subscriptions.push(copyFilesWithPaths);
 }
+
+// Gemeinsame Logik auslagern
+async function processUris(uris: vscode.Uri[]) {
+  try {
+    // Sammeln aller Dateien (inkl. rekursiv in Ordnern)
+    const allFileUris = await collectAllFiles(uris);
+    console.log("Gesammelte Dateien:", allFileUris.map(uri => uri.fsPath));
+
+    if (allFileUris.length === 0) {
+      vscode.window.showInformationMessage("Keine Dateien zum Kopieren gefunden!");
+      return;
+    }
+
+    // Einstellungen lesen
+    const config = vscode.workspace.getConfiguration("copymany");
+    const whitelistPatterns: string[] = config.get("whitelistPatterns", []);
+    const ignorePatterns: string[] = config.get("ignorePatterns", []);
+    const maxFileSizeMB: number = config.get("maxFileSizeMB", 0.5);
+
+    console.log("Whitelist-Muster:", whitelistPatterns);
+    console.log("Ignoriermuster:", ignorePatterns);
+    console.log("Maximale Dateigröße (MB):", maxFileSizeMB);
+
+    // Whitelist-Filter anwenden (falls definiert)
+    let whitelistedUris = allFileUris;
+    if (whitelistPatterns.length > 0) {
+      whitelistedUris = filterUrisByPatterns(allFileUris, whitelistPatterns, true);
+      console.log(
+        "Nach Whitelist gefilterte Dateien:",
+        whitelistedUris.map(uri => uri.fsPath)
+      );
+
+      if (whitelistedUris.length === 0) {
+        vscode.window.showInformationMessage(
+          "Keine Dateien entsprechen den Whitelist-Mustern!"
+        );
+        return;
+      }
+    }
+
+    // Blacklist-Filter anwenden
+    const validFileUris = filterUrisByPatterns(whitelistedUris, ignorePatterns, false);
+    console.log(
+      "Nach Ignoriermustern gefilterte Dateien:",
+      validFileUris.map(uri => uri.fsPath)
+    );
+
+    if (validFileUris.length === 0) {
+      vscode.window.showInformationMessage(
+        "Keine gültigen Dateien zum Kopieren gefunden!"
+      );
+      return;
+    }
+
+    // Mit Fortschrittsanzeige Dateien verarbeiten
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Copying Files with Paths",
+        cancellable: false,
+      },
+      async (progress) => {
+        progress.report({ increment: 0, message: "Überprüfe Dateien..." });
+
+        // Dateiüberprüfung (Existenz, Größe, Binärstatus)
+        const existingUris = await Promise.all(
+          validFileUris.map(async (uri, index) => {
+            try {
+              const stats = await fs.stat(uri.fsPath);
+              const fileSizeMB = stats.size / (1024 * 1024);
+              if (fileSizeMB > maxFileSizeMB) {
+                console.log(
+                  `Überspringen: ${uri.fsPath} (Größe ${fileSizeMB.toFixed(2)} MB > ${maxFileSizeMB} MB)`
+                );
+                return null;
+              }
+
+              const binary = await isBinaryFile(uri.fsPath);
+              if (binary) {
+                console.log(`Überspringen (Binärdatei): ${uri.fsPath}`);
+                return null;
+              }
+
+              progress.report({
+                increment: (index / validFileUris.length) * 50,
+                message: `Überprüfe: ${uri.fsPath}`,
+              });
+              return uri;
+            } catch (error: any) {
+              console.error(`Fehler bei Datei: ${uri.fsPath}`, error);
+              return null;
+            }
+          })
+        );
+
+        // Nicht gültige Dateien entfernen
+        const finalValidUris = existingUris.filter(uri => uri !== null) as vscode.Uri[];
+
+        if (finalValidUris.length === 0) {
+          vscode.window.showInformationMessage(
+            "Keine gültigen Dateien zum Kopieren gefunden!"
+          );
+          return;
+        }
+
+        progress.report({ increment: 50, message: "Lese Dateien..." });
+
+        // Dateien lesen und formatieren
+        const formattedContents = await Promise.all(
+          finalValidUris.map(async (uri, index) => {
+            try {
+              const content = await fs.readFile(uri.fsPath, "utf-8");
+              progress.report({
+                increment: (index / finalValidUris.length) * 50,
+                message: `Lese: ${uri.fsPath}`,
+              });
+              return formatFileContent(uri.fsPath, content);
+            } catch (error: any) {
+              console.error(`Fehler beim Lesen von: ${uri.fsPath}`, error);
+              return "";
+            }
+          })
+        );
+
+        const textToCopy = formattedContents.filter(Boolean).join("\n\n");
+        if (textToCopy) {
+          await vscode.env.clipboard.writeText(textToCopy);
+          const numfiles = finalValidUris.length;
+
+          vscode.window.showInformationMessage(
+            numfiles + " Dateien mit Pfaden erfolgreich kopiert!"
+          );
+        } else {
+          vscode.window.showInformationMessage(
+            "Keine Inhalte zum Kopieren vorhanden."
+          );
+        }
+      }
+    );
+  } catch (error: any) {
+    console.error("Fehler beim Kopieren der Dateien:", error);
+    vscode.window.showErrorMessage("Fehler: " + error.message);
+  }
+}
+
 
 /**
  * Recursively collects all file URIs from the provided URIs.

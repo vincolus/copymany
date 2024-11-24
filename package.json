@@ -2,7 +2,7 @@
   "name": "copymany",
   "displayName": "CopyMany",
   "description": "A VS Code extension that enables copying the contents of files or entire folder structures directly to the clipboard.",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "author": "vincolus",
   "publisher": "vincolus",
   "icon": "images/icon_128x128.png",
@@ -27,6 +27,13 @@
         "shortTitle": "Copy File(s) + Path(s)",
         "category": "File",
         "icon": "images/icon.svg"
+      },
+      {
+        "command": "copymany.copyAllOpenEditors",
+        "title": "Copy All Open Editors + Paths",
+        "shortTitle": "Copy All Open Editors + Paths",
+        "category": "File",
+        "icon": "images/icon.svg"
       }
     ],
     "menus": {
@@ -39,7 +46,7 @@
       ],
       "editor/context": [
         {
-          "command": "copymany.copyFilesWithPaths",
+          "command": "copymany.copyAllOpenEditors",
           "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
           "group": "navigation"
         }
@@ -68,6 +75,11 @@
       "commandPalette": [
         {
           "command": "copymany.copyFilesWithPaths",
+          "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
+          "group": "navigation"
+        },
+        {
+          "command": "copymany.copyAllOpenEditors",
           "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
           "group": "navigation"
         }
