@@ -37,6 +37,20 @@
           "group": "navigation"
         }
       ],
+      "editor/context": [
+        {
+          "command": "copymany.copyFilesWithPaths",
+          "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
+          "group": "navigation"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "copymany.copyFilesWithPaths",
+          "when": "resourceScheme == 'file' || resourceScheme == 'folder'",
+          "group": "navigation"
+        }
+      ],
       "explorer/context": [
         {
           "command": "copymany.copyFilesWithPaths",
